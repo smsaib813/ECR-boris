@@ -1,0 +1,312 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import scipy.constants as cst
+
+
+# In[2]:
+
+
+import time
+start_time = time.time()
+
+
+# Calculation of trap potential is done as follows:
+# E = k*(z -1/2x -1/2y)
+
+# In[3]:
+
+
+def E_trap(r):
+    E_0 = 10000
+    r=np.copy(r)
+    r[:,0:1],r[:,1:2],r[:,2:3] = -1/2*r[:,0:1],-1/2*r[:,1:2],r[:,2:3]
+    E= r*E_0
+    #print('E trap', r*E_0)
+    print('r',r)
+    return r*E_0
+
+
+# In[4]:
+
+
+q = -1.6E-19 #not sure what to do with the increase in speed and the particle reaching the speed higher than c
+m = 9.11E-31
+N = 2 # number of particles
+
+mass_array = np.transpose(np.ones(N))*m
+mass_array = mass_array[:,None]   #making an array of N x 1
+print('mass_array',mass_array)
+
+q_array = np.transpose(np.ones(N))*q
+q_array = q_array[:,None]
+print('q_array',q_array)
+
+delta_t = 0.01
+E_ext = np.array([0,0,0])  #needs to be updated according the penning trap potential
+B_ext = np.array([0,0,0]) #1])*1E-8
+
+
+v_array_old = np.zeros(shape = (N,3)) #for N particles with v = 0
+#v_array_old = np.array([[0.00,0,0] for _ in range(N)])
+print('v_array_old',v_array_old)
+
+v_array_new = np.zeros(shape = (N,3))
+
+r_array_old = np.array([[1.,0,0],[-1.,0,0]])  #for 2 particles
+#for 1 particle only:
+#r_array_old = np.array([[1,0,0]])
+print('r_array_old',r_array_old)
+
+r_array_new = np.zeros(shape = (N,3))
+
+
+# In[5]:
+
+
+#calculating electric field
+eps0 = 8.8541878128E-12
+
+#README: change this back to 1/(4*math.pi*eps0)
+k = 1/(4*math.pi*eps0)
+print(k)
+
+
+# In[6]:
+
+
+#calculating B field
+B_array = B_ext
+print('B_array = ',B_array)
+
+w_c = q*B_array/m
+f_c = np.linalg.norm(w_c/(2*math.pi))
+print('ECR freq f_c = ', f_c)
+Time_max = 1/f_c
+print('Time_max = ', Time_max)
+
+
+# In[7]:
+
+
+#calculate forces between particles, velocities, and position
+
+from sympy import symbols, Eq, solve, Matrix, linsolve
+
+T = 0
+dr_array = np.array([np.zeros(shape=(N-1,3)),]*N)
+dr_mag_array = np.zeros(shape=(N,1))
+E_array = np.array([np.array([0.,0.,0.]) for i in range (N)])   #initialized E_array
+print('E_array initial',E_array)
+v_track = []
+r_track = []
+t_track = []
+
+test_r_final = []  # this list stores final positions after each loop for comparison
+test_t_final = []
+
+E_track = []
+    
+while(T<1):#0):#0.5*1/f_c):
+    print('-----')
+    for i in range(N):
+        print('r_array_old 0',r_array_old)
+        r_i = r_array_old[i]
+        print('r_i',r_i)
+        r_others = np.append(r_array_old[0:i,:],r_array_old[i+1:N,:],axis = 0)  #get rid of the self particle from the array
+        print('r_others',r_others)
+        dr = -1*(r_others - r_i)
+        print('dr',dr)
+        dr_mag = np.linalg.norm(dr)
+        print('dr_mag',dr_mag)
+        E_others = k*q*dr/(dr_mag**3)
+        print('E_others',E_others)
+        E_i = E_ext + np.sum(E_others, axis = 0)  #sums up all the E-field from other particles and external E-field
+        #store the calculated dr in array of size N
+        dr_array[i] = dr
+        dr_mag_array[i] = dr_mag
+        E_array[i] = E_i 
+        print('E_i',E_i)
+           
+    print('r_array_old',r_array_old)  
+    print('E_array',np.copy(E_array))
+    print('E_trap',E_trap(r_array_old))
+    print('r_array_old after trap',r_array_old) 
+    E_track.append(np.copy(E_array)+ np.copy(E_trap(r_array_old)) )
+    #At the end of the array, we have as a main thing: E-field whose rows correspond to each particle
+
+    v_minus = v_array_old + delta_t/2*(q_array/mass_array)*E_array
+    
+    for i in range(N): 
+        c = float(-(q_array[i]*delta_t)/(2*mass_array[i]))
+
+        B1= B_array[0]
+        B2 = B_array[1]
+        B3 = B_array[2]
+
+        a1 = np.array([[1, c*B3, -c*B2], [-c*B3, 1, -c*B1], [c*B2, c*B1, 1]])
+        b1 = np.array(-c*np.cross(v_minus[i],B_array) + v_minus[i])
+        v_plus =np.linalg.solve(a1, b1)
+        
+        v_array_new[i] = v_plus + (q_array[i]*delta_t)/(2*mass_array[i])*E_array[i]
+    
+    print('r_array_old 1',r_array_old)
+    r_array_new = v_array_new * delta_t + r_array_old
+    #print(r_array_old)
+    v_array_old = v_array_new
+    r_array_old = r_array_new
+    print('r_array_old 2',r_array_old)
+    #print(r_array_old)
+    v_track.append(np.copy(v_array_old))
+    r_track.append(r_array_old)
+    t_track.append(T)
+    print('r_array_old 3',r_array_old)
+    
+    T += delta_t
+    
+print('end of updating v and r')
+
+v_track = np.array(v_track)
+r_track = np.array(r_track)
+t_track = np.array(t_track)
+E_track = np.array(E_track)
+
+print('current time = ', time.time()-start_time)
+
+
+# In[8]:
+
+
+print(E_track)
+#%store E_track
+
+
+# In[9]:
+
+
+#print(v_track)
+
+
+# In[10]:
+
+
+#print(r_track)
+
+
+# In[11]:
+
+
+#plotting x vs y position
+plt.subplot(1,3,1)
+r1_track = r_track[:,0,:]
+v1_track = v_track[:,0,:]
+get_ipython().run_line_magic('store', 'r1_track')
+get_ipython().run_line_magic('store', 'v1_track')
+x1 = r1_track[:,0]
+y1 = r1_track[:,1]
+
+plt.xlabel('x (m)')
+plt.ylabel('y (m)')
+#plt.gca().set_aspect('equal')
+plt.plot(x1,y1, color = 'red')
+
+#plt.subplot(1,3,2)
+if N==2:
+    r2_track = r_track[:,1,:]
+    v2_track = v_track[:,1,:]
+    get_ipython().run_line_magic('store', 'r2_track')
+    get_ipython().run_line_magic('store', 'v2_track')
+    x2 = r2_track[:,0]
+    y2 = r2_track[:,1]
+    plt.plot(x2,y2, color = 'blue')
+    plt.xlabel('x (m)')
+    plt.ylabel('y (m)')
+    #plt.gca().set_aspect('equal')
+    plt.show()
+
+print('current time = ', time.time()-start_time)
+
+
+# In[12]:
+
+
+#plotting E_array vs t 
+E_1 = E_track[:,0,:]
+get_ipython().run_line_magic('store', 'E_1')
+if N==2:
+    E_2 = E_track[:,1,:]
+    get_ipython().run_line_magic('store', 'E_2')
+    
+plt.subplot(1,3,1)
+plt.xlabel('t (s)')
+plt.ylabel('E')
+#plt.gca().set_aspect('equal')
+plt.plot(t_track,E_1[:,0])
+#plt.plot(t_track,E_1[:,1])
+#plt.plot(t_track,E_1[:,2])
+
+
+# In[13]:
+
+
+plt.plot(x1,E_1[:,0])
+plt.plot(x2,E_2[:,0])
+#plt.gca().set_aspect('equal')
+plt.title("Ex vs x")
+plt.xlabel("x")
+plt.ylabel("Ex")
+
+
+# In[14]:
+
+
+#plotting z vs t
+plt.subplot(3,1,3)
+z1 = r1_track[:,2]
+plt.xlabel('time (s)')
+plt.plot(t_track,z1)
+plt.show()
+
+
+# In[15]:
+
+
+#testing the final positions of the particle after each loop
+'''
+import statistics
+x = np.array(test_r_final)[:,:,0]
+y = np.array(test_r_final)[:,:,1]
+z = np.array(test_r_final)[:,:,2]
+t = test_t_final
+print('r',test_r_final)
+print('time',test_t_final)
+plt.subplot(1,2,1)
+plt.scatter(x,y)
+plt.xlabel('x (m)')
+plt.ylabel('y (m)')
+
+plt.subplot(1,2,2)
+plt.scatter(t,z)
+plt.xlabel('t (s)')
+plt.ylabel('z (m)')
+print(np.std(x),np.std(y),np.std(z))
+'''
+
+
+# In[ ]:
+
+
+#do this to avoid this notebook freezing and not opening
+
+clear = input("clear output? y/n:")
+
+from IPython.display import clear_output
+clear_output(wait=True)
+print("output cleared")
+
