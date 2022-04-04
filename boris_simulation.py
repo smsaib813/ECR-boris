@@ -269,12 +269,10 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
     step_max = step_Max(q,B_array,mass_array)   #this is the full cyclotron rotation period
 
     start_op_time = time.time()
-    delta_t = step_max/100
+    #delta_t = step_max/100
     delta_t = step_max/50
     T = 0
-    Time_max = 2500*step_max 
-    #Time_max = 1/500*Time_max
-    Time_max = 1.05E-6
+    Time_max = 1.05E-7
     
     dr_array = np.array([np.zeros(shape=(N-1,3)),]*N)
     dr_mag_array = np.zeros(shape=(N,1))
@@ -297,7 +295,7 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
     count  = 0
     while(T<Time_max):#0):#0.5*1/f_c):
         count += 1
-        if T%(5*delta_t)==0:
+        if T==5*delta_t:
             print(T)
         for i in range(N):
         
@@ -314,131 +312,11 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
             dr_mag_array[i] = dr_mag
 
             E_array[i] = E_i 
-            
-        micro_start = Time_max/4 
-        micro_end = micro_start + injection_time
-
-        if ((T> micro_start) and (T<(micro_end))):  #turn on microwave from t =  T/2 to 3T/4 #README if possible, change this to a period I can extract in other codes
-            E_microwave = circular_microwave_zt(r_array_old,T-micro_start,lamda)
-            #print('----')
-            #print(E_microwave)
-        else:
-            E_microwave = 0
-            #print('hahaha')
-        #print(E_microwave)
-        E_array_new = np.copy(E_array) + E_microwave #+ np.copy(E_trap(r_array_old))
-        E_track.append(np.copy(E_array) + E_microwave) #+ np.copy(E_trap(r_array_old))
- 
-        #At the end of the array, we have as a main thing: E-field whose rows correspond to each particle
-        totalKE.append(total_kinetic(m,v_array_old))
-        trapU.append(trap_potential(r_array_old))
-        if N>1:
-            interactionU.append(interaction_potential(dr_mag_array))
-        parE.append(par_kinetic(m,v_array_old))
-        perpE.append(perp_kinetic(m,v_array_old))
-
-        v_minus = v_array_old + delta_t/2*(q_array/mass_array)*E_array_new
-
-        for i in range(N): 
-            
-            c = float(-(q_array[i]*delta_t)/(2*mass_array[i]))
-
-            B1= B_array[0]
-            B2 = B_array[1]
-            B3 = B_array[2]
-
-            a1 = np.array([[1, c*B3, -c*B2], [-c*B3, 1, -c*B1], [c*B2, c*B1, 1]])
-            b1 = np.array(-c*np.cross(v_minus[i],B_array) + v_minus[i])
-            v_plus =np.linalg.solve(a1, b1)
-
-            v_array_new[i] = v_plus + (q_array[i]*delta_t)/(2*mass_array[i])*E_array_new[i]
-
-        r_array_new = v_array_new * delta_t + r_array_old
-        #print(r_array_old)
-        v_array_old = v_array_new
-        r_array_old = r_array_new
-        v_track.append(np.copy(v_array_old))
-        r_track.append(r_array_old)
-        t_track.append(T)
-
-        T += delta_t
-
-
-    totalKE = np.array(totalKE)
-    interactionU = np.array(interactionU)
-
-    if N == 1:
-        interactionU = totalKE*0   #just to make an array of same size as totalKE but elements all being 0 for no interaction
-    #print(interactionU[0:10])
-
-    intU = [np.linalg.norm(interactionU[i]) for i in range(np.size(totalKE))] 
-
-    totalE = np.array(totalKE) + np.array(trapU) + np.array(intU)
-    totalU = np.array(trapU) + np.array(intU)
-    trapU = np.array(trapU)
-    v_track = np.array(v_track)
-    r_track = np.array(r_track)
-    t_track = np.array(t_track)
-    E_track = np.array(E_track)
-
-    current_time = time.time()-start_time
-    time_took = time.time() - start_op_time
-
-    #print('current time = ', current_time)
-    #print('time took = ', time_took)
-    print('total points',count, np.size(t_track))
-    return [v_track, r_track, t_track, Time_max, E_track, totalKE, trapU, intU]
-    step_max = step_Max(q,B_array,mass_array)   #this is the full cyclotron rotation period
-
-    start_op_time = time.time()
-    delta_t = 0.01*step_max
-    T = 0
-    Time_max = 10*step_max 
-    #Time_max = 1/500*Time_max
-    
-    dr_array = np.array([np.zeros(shape=(N-1,3)),]*N)
-    dr_mag_array = np.zeros(shape=(N,1))
-    E_array = np.array([np.array([0.,0.,0.]) for i in range (N)])   #initialized E_array
-    #E_array_new = np.array([np.array([0.,0.,0.]) for i in range (N)])
-
-    E_track = []
-    v_track = []
-    r_track = []
-    t_track = []
-    trapU = []
-    interactionU = []
-    totalKE = []
-    parE = []
-    perpE = []
-
-    test_r_final = []  # this list stores final positions after each loop for comparison
-    test_t_final = []
-    
-    count  = 0
-    while(T<Time_max):#0):#0.5*1/f_c):
-        count += 1
-        print(T,'---')
-        if T%(5*delta_t)==0:
-            print(T,'-----')
-        for i in range(N):
         
-            if N == 1:
-                break
-            r_i = r_array_old[i]
-            r_others = np.append(r_array_old[0:i,:],r_array_old[i+1:N,:],axis = 0)  #get rid of the self particle from the array
-            dr = -1*(r_others - r_i)
-            dr_mag = np.linalg.norm(dr)
-            E_others = k*q*dr/(dr_mag**3)
-            E_i = E_ext + np.sum(E_others, axis = 0)  #sums up all the E-field from other particles and external E-field
-            #store the calculated dr in array of size N
-            dr_array[i] = dr
-            dr_mag_array[i] = dr_mag
-
-            E_array[i] = E_i 
-            
-        micro_start = Time_max/4 
+           
+        micro_start = (Time_max - injection_time)/2
         micro_end = micro_start + injection_time
-
+        
         if ((T> micro_start) and (T<(micro_end))):  #turn on microwave from t =  T/2 to 3T/4 #README if possible, change this to a period I can extract in other codes
             E_microwave = circular_microwave_zt(r_array_old,T-micro_start,lamda)
             #print('----')
@@ -447,9 +325,10 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
             E_microwave = 0
             #print('hahaha')
         #print(E_microwave)
-        E_array_new = np.copy(E_array) + E_microwave #+ np.copy(E_trap(r_array_old))
-        E_track.append(np.copy(E_array) + E_microwave) #+ np.copy(E_trap(r_array_old))
+        E_array_new = np.copy(E_array) + E_microwave + np.copy(E_trap(r_array_old))
+        E_track.append(np.copy(E_array) + E_microwave + np.copy(E_trap(r_array_old)))
  
+
         #At the end of the array, we have as a main thing: E-field whose rows correspond to each particle
         totalKE.append(total_kinetic(m,v_array_old))
         trapU.append(trap_potential(r_array_old))
@@ -459,7 +338,7 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
         perpE.append(perp_kinetic(m,v_array_old))
 
         v_minus = v_array_old + delta_t/2*(q_array/mass_array)*E_array_new
-
+        
         for i in range(N): 
             
             c = float(-(q_array[i]*delta_t)/(2*mass_array[i]))
@@ -473,7 +352,7 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
             v_plus =np.linalg.solve(a1, b1)
 
             v_array_new[i] = v_plus + (q_array[i]*delta_t)/(2*mass_array[i])*E_array_new[i]
-
+        
         r_array_new = v_array_new * delta_t + r_array_old
         #print(r_array_old)
         v_array_old = v_array_new
@@ -484,7 +363,7 @@ def calc_rvE(r_array_old,v_array_old,B_array,E_ext,lamda,injection_time = 0.1E-3
 
         T += delta_t
 
-
+    print('---end of calculation for all particles---')
     totalKE = np.array(totalKE)
     interactionU = np.array(interactionU)
 
