@@ -25,7 +25,6 @@ start_time = time.time()
 #calculating electric field
 eps0 = 8.8541878128E-12
 k = 1/(4*math.pi*eps0)
-print(k)
 
 
 # In[4]:
@@ -184,7 +183,8 @@ q_array = np.transpose(np.ones(N))*q
 q_array = q_array[:,None]
 
 E_ext = np.array([0,0,0])  #needs to be updated according the penning trap potential
-B_ext = np.array([0,0,1]) *0.7
+Bmag = 0.7
+B_ext = np.array([0,0,1]) *Bmag
 
 #v_array_old = np.array([[10,0,0]])
 v_array_old = np.ones(shape = (N,3))*14215 #for N particles with v = mean velocity = 24600
@@ -212,7 +212,8 @@ def initial_conditions(N=2): #number of particles
     q_array = q_array[:,None]
     
     E_ext = np.array([0,0,0])  #needs to be updated according the penning trap potential
-    B_ext = np.array([0,0,1]) *0.7
+    Bmag = 0.7
+    B_ext = np.array([0,0,1]) *Bmag
     
     #v_array_old = np.array([[10,0,0]])
     v_array_old = np.ones(shape = (N,3))*14215 #for N particles with v = 0
@@ -222,7 +223,7 @@ def initial_conditions(N=2): #number of particles
     
     #r_array_old = np.array([[1,0,0],[-1,0,0]])*8.37E-6 #for 2 particles when intU ~ KE
     #for 1 particle only:
-    r_array_old = np.ones(shape = (N,3))*random.randint(0,1)*8.37E-6
+    r_array_old = np.random.uniform(low=0.0, high=1.0, size=(2,3))*8.37E-6   #uniformly distributed array between 0 and 8.37E-6 
     print('r_array_old',r_array_old)
     r_array_new = np.zeros(shape = (N,3))
     #calculating B field
@@ -280,7 +281,7 @@ def calc_rvE(N, q_array, mass_array, E_ext, B_array, r_array_old, r_array_new, v
     delta_t = step_max/50
     T = 0
     #Time_max = 1.05E-6
-    Time_max = 2500*step_max
+    Time_max = delta_t#2500*step_max
     
     dr_array = np.array([np.zeros(shape=(N-1,3)),]*N)
     dr_mag_array = np.zeros(shape=(N,1))
@@ -301,7 +302,7 @@ def calc_rvE(N, q_array, mass_array, E_ext, B_array, r_array_old, r_array_new, v
     test_t_final = []
     
     
-    print('---',N, q_array, mass_array, E_ext, B_array, r_array_old, r_array_new, v_array_old, v_array_new,lamda,injection_time)
+    print('---',N, q_array, mass_array, E_ext, B_array, 'r_old =',r_array_old, r_array_new, v_array_old, v_array_new,lamda,injection_time)
     count  = 0
     while(T<Time_max):#0):#0.5*1/f_c):
         count += 1
@@ -311,7 +312,6 @@ def calc_rvE(N, q_array, mass_array, E_ext, B_array, r_array_old, r_array_new, v
         
             if N == 1:
                 break
-            #print('old',r_array_old)
             r_i = r_array_old[i]
             #print('r_i',r_i)
             r_others = np.append(r_array_old[0:i,:],r_array_old[i+1:N,:],axis = 0)  #get rid of the self particle from the array
@@ -327,18 +327,15 @@ def calc_rvE(N, q_array, mass_array, E_ext, B_array, r_array_old, r_array_new, v
             dr_mag_array[i] = dr_mag
 
             E_array[i] = E_i 
-        
            
         micro_start = (Time_max - injection_time)/2
         micro_end = micro_start + injection_time
-        
         if ((T> micro_start) and (T<(micro_end))):  #turn on microwave from t =  T/2 to 3T/4 #README if possible, change this to a period I can extract in other codes
             E_microwave = circular_microwave_zt(r_array_old,T-micro_start,lamda)
             #print('----')
             #print(E_microwave)
         else:
             E_microwave = 0
-            #print('hahaha')
         #print(E_microwave)
         E_array_new = np.copy(E_array) + E_microwave + np.copy(E_trap(r_array_old))
         E_track.append(np.copy(E_array) + E_microwave + np.copy(E_trap(r_array_old)))
